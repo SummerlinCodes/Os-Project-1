@@ -1,0 +1,115 @@
+Brandon Summerlin
+Programming Assignment #1
+Operating systems
+March 28th, 2025
+
+Producer-Consumer Problem: Implementation Explanation
+
+Overview
+This document explains the implementation of the Producer-Consumer problem for the Operating Systems course at Kent State University. The solution demonstrates process synchronization using shared memory and semaphores in a multi-threaded environment.
+
+Problem Statement
+The producer-consumer problem is a classic synchronization problem where:
+- A producer generates items and puts them onto a table
+- A consumer picks up items from the table
+- The table can only hold two items at the same time
+- When the table is full, the producer must wait
+- When the table is empty, the consumer must wait
+
+Implementation Components
+
+1. Shared Memory
+The implementation uses POSIX shared memory (shm_open()) to create a shared region accessible by both the producer and consumer processes. This shared memory contains:
+- An array of two integers representing the table
+- Index variables to track where to put and get items
+
+typedef struct {
+    int items[TABLE_SIZE];  // Array to hold items
+    int in;                 // Index for producer to put item
+    int out;                // Index for consumer to get item
+} SharedTable;
+
+2. Semaphores
+Three semaphores are used for synchronization:
+- mutex: Ensures mutual exclusion when accessing the shared table (initialized to 1)
+- empty: Counts empty slots in the table (initialized to TABLE_SIZE, which is 2)
+- full: Counts filled slots in the table (initialized to 0)
+
+3. Producer Process
+The producer process:
+1. Creates the shared memory and initializes it
+2. Creates and initializes the semaphores
+3. Creates a producer thread that:
+   - Produces items (incrementing integers)
+   - Waits for an empty slot (sem_wait(empty))
+   - Acquires the mutex (sem_wait(mutex))
+   - Places the item in the table
+   - Releases the mutex (sem_post(mutex))
+   - Signals that a slot is filled (sem_post(full))
+   - Sleeps for a random time
+
+4. Consumer Process
+The consumer process:
+1. Opens the existing shared memory
+2. Opens the existing semaphores
+3. Creates a consumer thread that:
+   - Waits for a filled slot (sem_wait(full))
+   - Acquires the mutex (sem_wait(mutex))
+   - Takes an item from the table
+   - Releases the mutex (sem_post(mutex))
+   - Signals that a slot is empty (sem_post(empty))
+   - Consumes the item
+   - Sleeps for a random time
+
+Synchronization Mechanism
+The solution implements the classic semaphore-based synchronization for the producer-consumer problem:
+
+1. Mutual Exclusion: The mutex semaphore ensures that only one thread (either producer or consumer) can access the shared table at any time.
+
+2. Capacity Control: 
+   - The empty semaphore starts at 2 (TABLE_SIZE) and is decremented by the producer before adding an item
+   - The full semaphore starts at 0 and is incremented by the producer after adding an item
+   - The consumer waits on full (ensuring there's an item to consume)
+   - The consumer increments empty after consuming an item
+
+3. Circular Buffer: The table is implemented as a circular buffer using modulo arithmetic:
+   sharedTable->in = (sharedTable->in + 1) % TABLE_SIZE;
+   sharedTable->out = (sharedTable->out + 1) % TABLE_SIZE;
+
+Thread Usage
+Both the producer and consumer processes create a single thread to handle the producing and consuming operations. This demonstrates thread creation and synchronization within processes, while the processes themselves communicate through shared memory.
+
+Potential Issues and Solutions
+
+Deadlock Prevention
+The implementation avoids deadlock by:
+- Always acquiring semaphores in the same order (empty/full, then mutex)
+- Releasing the mutex before signaling other semaphores
+
+Process Termination
+In a real-world scenario, proper cleanup would be needed:
+- Unlink semaphores (sem_unlink())
+- Unmap shared memory (munmap())
+- Unlink shared memory (shm_unlink())
+
+The current implementation doesn't handle termination gracefully as the processes run indefinitely.
+
+Compilation and Execution
+The project includes a Makefile for easy compilation and execution:
+- make build: Compiles both producer and consumer programs
+- make run: Runs both programs in the background
+
+For manual compilation:
+g++ producer.cpp -o producer -lrt -pthread
+g++ consumer.cpp -o consumer -lrt -pthread
+
+For manual execution:
+./producer & ./consumer &
+
+Windows Compatibility
+For Windows users, the code needs to be run in a Linux-compatible environment:
+- Windows Subsystem for Linux (WSL)
+- VirtualBox with a Linux distribution
+- Docker container running Linux
+
+The pthread and POSIX shared memory APIs are not natively available on Windows.
