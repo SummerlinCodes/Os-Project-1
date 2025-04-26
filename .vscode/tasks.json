@@ -1,0 +1,52 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+      {
+        "label": "build producer",
+        "type": "shell",
+        "command": "g++",
+        "args": [
+          "producer.cpp",
+          "-o",
+          "producer",
+          "-lrt",
+          "-pthread"
+        ],
+        "group": {
+          "kind": "build",
+          "isDefault": true
+        },
+        "options": {
+          "cwd": "${workspaceFolder}",
+          "shell": {
+            "executable": "wsl",
+            "args": []
+          }
+        }
+      },
+      {
+        "label": "build consumer",
+        "type": "shell",
+        "command": "g++",
+        "args": [
+          "consumer.cpp",
+          "-o",
+          "consumer",
+          "-lrt",
+          "-pthread"
+        ],
+        "group": {
+          "kind": "build",
+          "isDefault": true
+        },
+        "options": {
+          "cwd": "${workspaceFolder}",
+          "shell": {
+            "executable": "wsl",
+            "args": []
+          }
+        }
+      }
+    ]
+  }
+  // This file defines tasks for building the producer and consumer programs

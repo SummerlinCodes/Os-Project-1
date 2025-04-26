@@ -8,9 +8,10 @@ using namespace std;
 
 // Global variables
 SharedTable* sharedTable = NULL;
-sem_t* mutex = NULL;
-sem_t* empty = NULL;
-sem_t* full = NULL;
+sem_t*       mutex      = NULL;  // Mutex for critical section
+sem_t*       sem_empty  = NULL;  // Initially, table is empty
+sem_t*       full       = NULL;  // Initially, no items
+bool         isRunning  = true;  // Flag to control the running state of the producer loop
 
 // Function to produce an item
 int produceItem() {
@@ -18,14 +19,21 @@ int produceItem() {
     return ++item;
 }
 
+// Thread function prototype
+void* producer(void* arg);
+
 // Function for producer thread
 void* producer(void* arg) {
     while (true) {
+        if (!isRunning) {
+            break;  // Exit if running is set to false
+        }
+
         // Produce an item
         int item = produceItem();
         
         // Wait for empty slot
-        sem_wait(empty);
+        sem_wait(sem_empty);
         
         // Wait for mutex
         sem_wait(mutex);
@@ -50,7 +58,7 @@ void* producer(void* arg) {
 
 int main() {
     // Seed random number generator
-    srand(time(NULL));
+    srand(time(nullptr));
     
     // Create shared memory
     int shm_fd = shm_open(SHM_NAME, O_CREAT | O_RDWR, 0666);
@@ -66,22 +74,25 @@ int main() {
     }
     
     // Map shared memory
-    sharedTable = (SharedTable*)mmap(NULL, sizeof(SharedTable), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
+    sharedTable = (SharedTable*)mmap(NULL, sizeof(SharedTable),
+    PROT_READ | PROT_WRITE,
+    MAP_SHARED, shm_fd, 0);
     if (sharedTable == MAP_FAILED) {
         perror("mmap");
         exit(1);
     }
     
     // Initialize shared memory
-    sharedTable->in = 0;
+    sharedTable->in  = 0;
     sharedTable->out = 0;
+    sharedTable->isRunning = true;  // Set running flag to true
     
     // Create semaphores
-    mutex = sem_open(SEM_MUTEX, O_CREAT, 0666, 1);  // Mutex for critical section
-    empty = sem_open(SEM_EMPTY, O_CREAT, 0666, TABLE_SIZE);  // Initially table is empty
-    full = sem_open(SEM_FULL, O_CREAT, 0666, 0);  // Initially no items
+    mutex     = sem_open(SEM_MUTEX, O_CREAT, 0666, 1);            // Mutex for critical section
+    sem_empty = sem_open(SEM_EMPTY, O_CREAT, 0666, TABLE_SIZE);  // Initially table is empty
+    full      = sem_open(SEM_FULL,  O_CREAT, 0666, 0);           // Initially no items
     
-    if (mutex == SEM_FAILED || empty == SEM_FAILED || full == SEM_FAILED) {
+    if (mutex == SEM_FAILED || sem_empty == SEM_FAILED || full == SEM_FAILED) {
         perror("sem_open");
         exit(1);
     }
@@ -98,7 +109,7 @@ int main() {
     
     // Clean up (this code will never be reached in this implementation)
     sem_close(mutex);
-    sem_close(empty);
+    sem_close(sem_empty);
     sem_close(full);
     sem_unlink(SEM_MUTEX);
     sem_unlink(SEM_EMPTY);

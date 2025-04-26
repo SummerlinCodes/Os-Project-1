@@ -17,6 +17,7 @@
 #define SEM_MUTEX "/mutex_sem"
 #define SEM_EMPTY "/empty_sem"
 #define SEM_FULL "/full_sem"
+#define TABLE_SIZE 2
 
 // Table size (can hold 2 items)
 #define TABLE_SIZE 2
@@ -24,8 +25,8 @@
 // Structure for shared memory
 typedef struct {
     int items[TABLE_SIZE];  // Array to hold items
-    int in;                 // Index for producer to put item
-    int out;                // Index for consumer to get item
+    int in, out;            // Index for producer to put item & for consumer to get item
+    bool isRunning;         // Shared stop flag for threads
 } SharedTable;
 
 #endif // SHARED_MEMORY_H
