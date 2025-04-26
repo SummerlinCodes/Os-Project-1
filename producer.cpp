@@ -1,12 +1,11 @@
+// producer.cpp
 #include <iostream>
 #include <pthread.h>
 #include <cstdlib>
 #include <ctime>
+#include <cstring>            // for std::memset (if you ever need it)
 #include "shared_memory.h"
 
-using namespace std;
-
-// Global variables
 SharedTable* sharedTable = NULL;
 sem_t*       mutex      = NULL;  // Mutex for critical section
 sem_t*       sem_empty  = NULL;  // Initially, table is empty
@@ -40,7 +39,9 @@ void* producer(void* arg) {
         
         // Critical section - put item on table
         sharedTable->items[sharedTable->in] = item;
-        cout << "Producer: Produced item " << item << " at position " << sharedTable->in << endl;
+        std::cout << "Producer: Produced item " << item
+                  << " at position " << sharedTable->in
+                  << std::endl;
         sharedTable->in = (sharedTable->in + 1) % TABLE_SIZE;
         
         // Release mutex
@@ -50,7 +51,7 @@ void* producer(void* arg) {
         sem_post(full);
         
         // Sleep for random time (1-3 seconds)
-        sleep(rand() % 3 + 1);
+        sleep(std::rand() % 3 + 1);
     }
     
     return NULL;
@@ -58,56 +59,62 @@ void* producer(void* arg) {
 
 int main() {
     // Seed random number generator
-    srand(time(nullptr));
+    std::srand(std::time(nullptr));
+    
+    // Unlink anything left over from previous runs, then recreates shared memory and semaphores
+    shm_unlink(SHM_NAME);
+    sem_unlink(SEM_MUTEX);
+    sem_unlink(SEM_EMPTY);
+    sem_unlink(SEM_FULL);
     
     // Create shared memory
     int shm_fd = shm_open(SHM_NAME, O_CREAT | O_RDWR, 0666);
     if (shm_fd == -1) {
         perror("shm_open");
-        exit(1);
+        std::exit(1);
     }
     
     // Set size of shared memory
     if (ftruncate(shm_fd, sizeof(SharedTable)) == -1) {
         perror("ftruncate");
-        exit(1);
+        std::exit(1);
     }
     
     // Map shared memory
     sharedTable = (SharedTable*)mmap(NULL, sizeof(SharedTable),
-    PROT_READ | PROT_WRITE,
-    MAP_SHARED, shm_fd, 0);
+                                     PROT_READ | PROT_WRITE,
+                                     MAP_SHARED, shm_fd, 0);
     if (sharedTable == MAP_FAILED) {
         perror("mmap");
-        exit(1);
+        std::exit(1);
     }
     
     // Initialize shared memory
-    sharedTable->in  = 0;
-    sharedTable->out = 0;
+    sharedTable->in        = 0;
+    sharedTable->out       = 0;
     sharedTable->isRunning = true;  // Set running flag to true
     
     // Create semaphores
     mutex     = sem_open(SEM_MUTEX, O_CREAT, 0666, 1);            // Mutex for critical section
-    sem_empty = sem_open(SEM_EMPTY, O_CREAT, 0666, TABLE_SIZE);  // Initially table is empty
-    full      = sem_open(SEM_FULL,  O_CREAT, 0666, 0);           // Initially no items
+    sem_empty = sem_open(SEM_EMPTY, O_CREAT, 0666, TABLE_SIZE);   // Initially table is empty
+    full      = sem_open(SEM_FULL,  O_CREAT, 0666, 0);            // Initially no items
     
     if (mutex == SEM_FAILED || sem_empty == SEM_FAILED || full == SEM_FAILED) {
         perror("sem_open");
-        exit(1);
+        std::exit(1);
     }
     
     // Create producer thread
     pthread_t producerThread;
     if (pthread_create(&producerThread, NULL, producer, NULL) != 0) {
         perror("pthread_create");
-        exit(1);
+        std::exit(1);
     }
     
-    // Wait for producer thread to finish (which it never will in this implementation)
+    // Wait for producer thread to finish (block until the thread exits (marked by CTRL+C))
     pthread_join(producerThread, NULL);
     
-    // Clean up (this code will never be reached in this implementation)
+    // Clean up
     sem_close(mutex);
     sem_close(sem_empty);
     sem_close(full);

@@ -49,15 +49,12 @@ $(TARGET2): $(SRC2)
 	$(CC) $(SRC2) -o $(TARGET2) $(CFLAGS)
 
 run: build
-	@/bin/bash -c ' \
-	  echo "===== DEBUG: starting run under shell $$ ====="; \
-	  trap "echo DEBUG: got SIGINT, killing kids; kill 0" INT; \
-	  echo "Launching producer…"; ./$(TARGET1) & echo "  PID $$!"; \
-	  echo "Launching consumer…"; ./$(TARGET2) & echo "  PID $$!"; \
-	  echo "===== DEBUG: entering wait() ====="; \
-	  wait; \
-	  echo "===== DEBUG: all children have exited ====="; \
-	'
+	@echo "Starting (CTRL+C to stop):"
+	@echo "Starting producer in background…"
+	@./producer &
+	@sleep 1
+	@echo "Starting consumer…"
+	@./consumer
 
 clean:
 	rm -f $(TARGET1) $(TARGET2)

@@ -1,3 +1,4 @@
+// consumer.cpp
 #include <iostream>
 #include <pthread.h>
 #include <cstdlib>
@@ -9,8 +10,6 @@
 #include <unistd.h>
 #include "shared_memory.h"
 
-using namespace std;
-
 SharedTable* sharedTable = nullptr;
 pthread_t    consumerThread;
 sem_t*       mutex_sem   = nullptr;
@@ -19,13 +18,13 @@ sem_t*       full_sem    = nullptr;
 
 // Consume an item by printing it
 void consumeItem(int item) {
-    cout << "Consumer: Consumed item " << item << endl;
+    std::cout << "Consumer: Consumed item " << item << std::endl;
 }
 
 // Signal handler flips the shared flag
 typedef void (*sighandler_t)(int);
 void sigintHandler(int) {
-    cout << "\nConsumer: Terminating..." << endl;
+    std::cout << "\nConsumer: Terminating..." << std::endl;
     sharedTable->isRunning = false;
 }
 
@@ -37,30 +36,30 @@ void* consumerFunc(void*) {
         sem_wait(mutex_sem);
 
         int item = sharedTable->items[sharedTable->out];
-        cout << "Consumer: Got item " << item
-             << " from position " << sharedTable->out << endl;
+        std::cout << "Consumer: Got item " << item
+        << " from position " << sharedTable->out << std::endl;
         sharedTable->out = (sharedTable->out + 1) % TABLE_SIZE;
 
         sem_post(mutex_sem);
         sem_post(empty_sem);
 
         consumeItem(item);
-        sleep(rand() % 5 + 1);
+        sleep(std::rand() % 5 + 1);
     }
     return nullptr;
 }
 
 int main() {
-    // Set up signal handler
+    // Set up signal handler so Ctrl+C can stop the thread
     signal(SIGINT, (sighandler_t)sigintHandler);
     // Seed random number generator
-    srand(time(nullptr));
+    std::srand(std::time(nullptr));
 
     // Open shared memory
     int shm_fd = shm_open(SHM_NAME, O_RDWR, 0666);
     if (shm_fd == -1) {
         perror("shm_open");
-        exit(1);
+        std::exit(1);
     }
 
     // Map shared memory
@@ -70,7 +69,7 @@ int main() {
     );
     if (sharedTable == MAP_FAILED) {
         perror("mmap");
-        exit(1);
+        std::exit(1);
     }
 
     sharedTable->isRunning = true;  // Set running flag to true
@@ -81,13 +80,13 @@ int main() {
     full_sem  = sem_open(SEM_FULL,  0);
     if (mutex_sem==SEM_FAILED || empty_sem==SEM_FAILED || full_sem==SEM_FAILED) {
         perror("sem_open");
-        exit(1);
+        std::exit(1);
     }
 
     // Create consumer thread
     if (pthread_create(&consumerThread, nullptr, consumerFunc, nullptr) != 0) {
         perror("pthread_create");
-        exit(1);
+        std::exit(1);
     }
 
     // Wait for consumer thread to finish
